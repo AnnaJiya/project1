@@ -154,6 +154,13 @@ $conn->close();
     }
 
     .layout { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 64px); }
+    /* Collapsed sidebar (desktop) */
+    body[data-sidebar="collapsed"] .layout { grid-template-columns: 80px 1fr; }
+    body[data-sidebar="collapsed"] .sidebar { padding: .75rem; }
+    body[data-sidebar="collapsed"] .sidebar .section-title { display: none; }
+    body[data-sidebar="collapsed"] .nav a { justify-content: center; padding: .6rem; }
+    body[data-sidebar="collapsed"] .nav a span { display: none; }
+    body[data-sidebar="collapsed"] .nav a i { color: var(--text); }
 
     .sidebar {
       position: sticky; top: 0; align-self: start;
@@ -372,7 +379,7 @@ $conn->close();
     const themeToggle = document.getElementById('themeToggle');
     const backdrop = document.getElementById('backdrop');
 
-    // Sidebar toggle with state persisted
+    // Sidebar toggle with state persisted (mobile overlay)
     function setSidebar(open) {
       const isMobile = window.matchMedia('(max-width: 1024px)').matches;
       if (isMobile) {
@@ -384,9 +391,26 @@ $conn->close();
       localStorage.setItem('ams.sidebar.open', open ? '1' : '0');
     }
 
+    // Desktop collapse mode
+    function setDesktopCollapsed(collapsed) {
+      if (collapsed) {
+        body.setAttribute('data-sidebar', 'collapsed');
+      } else {
+        body.removeAttribute('data-sidebar');
+      }
+      menuToggle.setAttribute('aria-expanded', String(!collapsed));
+      localStorage.setItem('ams.sidebar.collapsed', collapsed ? '1' : '0');
+    }
+
     function toggleSidebar() {
-      const open = !sidebar.classList.contains('active');
-      setSidebar(open);
+      const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+      if (isMobile) {
+        const open = !sidebar.classList.contains('active');
+        setSidebar(open);
+      } else {
+        const isCollapsed = body.getAttribute('data-sidebar') === 'collapsed';
+        setDesktopCollapsed(!isCollapsed);
+      }
     }
 
     // Theme toggle with system preference fallback
@@ -409,6 +433,24 @@ $conn->close();
       applyTheme(prefersDark ? 'dark' : 'light');
     }
 
+    function applyInitialSidebarState() {
+      const isMobile = window.matchMedia('(max-width: 1024px)').matches;
+      if (isMobile) {
+        // Mobile: overlay closed by default
+        setSidebar(false);
+        body.removeAttribute('data-sidebar');
+        menuToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        // Desktop: restore collapsed state
+        const collapsed = localStorage.getItem('ams.sidebar.collapsed') === '1';
+        setDesktopCollapsed(collapsed);
+        // Ensure overlay elements are reset
+        sidebar.classList.remove('active');
+        backdrop.classList.remove('active');
+        document.documentElement.style.overflowY = '';
+      }
+    }
+
     // Event listeners
     menuToggle.addEventListener('click', toggleSidebar);
     backdrop.addEventListener('click', () => setSidebar(false));
@@ -423,18 +465,23 @@ $conn->close();
 
     // Initialize on load
     initTheme();
-    // Restore sidebar state only for mobile, default closed
-    setSidebar(false);
+    applyInitialSidebarState();
 
     // Update on resize to ensure correct layout state
     window.addEventListener('resize', () => {
       const isMobile = window.matchMedia('(max-width: 1024px)').matches;
-      if (!isMobile) {
-        // Ensure desktop layout has no overlay artifacts
+      if (isMobile) {
+        // Switch to overlay mode
+        body.removeAttribute('data-sidebar');
+        const open = localStorage.getItem('ams.sidebar.open') === '1';
+        setSidebar(open && false); // default to closed on enter mobile
+      } else {
+        // Switch to desktop collapse mode
         sidebar.classList.remove('active');
         backdrop.classList.remove('active');
-        menuToggle.setAttribute('aria-expanded', 'false');
         document.documentElement.style.overflowY = '';
+        const collapsed = localStorage.getItem('ams.sidebar.collapsed') === '1';
+        setDesktopCollapsed(collapsed);
       }
     });
   </script>
